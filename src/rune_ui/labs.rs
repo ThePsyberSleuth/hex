@@ -981,6 +981,7 @@ fn row_key(lab: Lab) -> &'static str {
         Feature::SpeakersOnly => "lab-speakers-only",
         Feature::KeepMicrophoneOpen => "lab-keep-microphone-open",
         Feature::PrintStart => "lab-print-start",
+        Feature::HyprlandShortcuts => "lab-hyprland-shortcuts",
     }
 }
 

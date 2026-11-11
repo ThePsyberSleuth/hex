@@ -376,3 +376,14 @@ pub fn microphone_linger() -> Option<std::time::Duration> {
         seconds => Some(std::time::Duration::from_secs(seconds)),
     }
 }
+
+/// The Hyprland listener binds Hex's shortcuts through the compositor's own
+/// config, so a key from Settings works without editing it by hand (Linux;
+/// read where the portal listener starts). The state word is full, so its
+/// switch has its own atomic, written by `labs::apply`.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+pub fn hyprland_shortcuts() -> bool {
+    // Loaded here first in a process that never applied.
+    let _ = state();
+    HYPRLAND_SHORTCUTS.load(Ordering::Acquire) && Feature::HyprlandShortcuts.on_this_os()
+}

@@ -166,6 +166,7 @@ impl Feature {
             | Self::SpeakersOnly
             | Self::PauseMenu
             | Self::PrintStart
+            | Self::HyprlandShortcuts
             | Self::MoreDictationShortcuts => Audience::Everyone,
         }
     }
@@ -245,6 +246,7 @@ impl Feature {
             | Self::PauseMenu
             | Self::HistoryMultiSelect => 20261110,
             Self::KeepMicrophoneOpen | Self::PrintStart => 20261111,
+            Self::HyprlandShortcuts => 20261112,
         }
     }
 
@@ -300,7 +302,8 @@ impl Feature {
             | Self::TypedText
             | Self::GnomeMeetingCapsules
             | Self::GnomeAnnotate
-            | Self::LiveTyping => cfg!(target_os = "linux"),
+            | Self::LiveTyping
+            | Self::HyprlandShortcuts => cfg!(target_os = "linux"),
             Self::StandaloneSpecialKeys | Self::SkipPauses | Self::TerminalPasteShortcut => {
                 cfg!(any(target_os = "linux", target_os = "windows"))
             }
@@ -449,6 +452,7 @@ impl Feature {
             Self::SpeakersOnly => "speakers-only",
             Self::PauseMenu => "pause-menu",
             Self::PrintStart => "print-start",
+            Self::HyprlandShortcuts => "hyprland-shortcuts",
             Self::MoreDictationShortcuts => "more-dictation-shortcuts",
         }
     }
@@ -530,6 +534,7 @@ impl Feature {
             Self::SpeakersOnly => "labs.speakers_only",
             Self::PauseMenu => "labs.pause_menu",
             Self::PrintStart => "labs.print_start",
+            Self::HyprlandShortcuts => "labs.hyprland_shortcuts",
             Self::MoreDictationShortcuts => "labs.more_dictation_shortcuts",
         }
     }
@@ -615,6 +620,7 @@ impl Feature {
             Self::SpeakersOnly => settings.labs.speakers_only,
             Self::PauseMenu => settings.labs.pause_menu,
             Self::PrintStart => settings.labs.print_start,
+            Self::HyprlandShortcuts => settings.labs.hyprland_shortcuts,
             Self::MoreDictationShortcuts => settings.labs.more_dictation_shortcuts,
         }
     }
@@ -698,6 +704,7 @@ impl Feature {
             &mut labs.app_model_switching,
             &mut labs.pause_menu,
             &mut labs.print_start,
+            &mut labs.hyprland_shortcuts,
             &mut labs.more_dictation_shortcuts,
         ]
     }
@@ -786,6 +793,7 @@ impl Feature {
             Self::SpeakersOnly => settings.labs.speakers_only = on,
             Self::PauseMenu => settings.labs.pause_menu = on,
             Self::PrintStart => settings.labs.print_start = on,
+            Self::HyprlandShortcuts => settings.labs.hyprland_shortcuts = on,
             Self::MoreDictationShortcuts => settings.labs.more_dictation_shortcuts = on,
             // Off, no shortcut keeps a key only the feature allows.
             Self::StandaloneSpecialKeys => {
@@ -910,6 +918,19 @@ static MICROPHONE_LINGER_SECONDS: AtomicU64 = AtomicU64::new(0);
 /// own atomic, written by [`state`] and [`apply`].
 static PRINT_START: AtomicBool = AtomicBool::new(false);
 
+/// With the state word full, this lab keeps its own switch too: the listener
+/// binds Hex's shortcuts through Hyprland's config (Linux). Written by
+/// [`state`] and [`apply`], read by [`gates::hyprland_shortcuts`].
+static HYPRLAND_SHORTCUTS: AtomicBool = AtomicBool::new(false);
+
+/// Whether `settings` turn on Hyprland's shortcut binds, before its managed
+/// lock; the state word has no bit for it.
+fn hyprland_shortcuts_enabled(settings: &LabsSettings) -> bool {
+    settings.hyprland_shortcuts
+        && Feature::HyprlandShortcuts.shipped()
+        && Feature::HyprlandShortcuts.managed().is_none()
+}
+
 fn on(bit: u64) -> bool {
     state() & bit != 0
 }
@@ -927,6 +948,7 @@ fn state() -> u64 {
                 // as off, and the next read is right.
                 MICROPHONE_LINGER_SECONDS.store(linger_seconds(&saved), Ordering::Release);
                 PRINT_START.store(print_start_enabled(&saved), Ordering::Release);
+                HYPRLAND_SHORTCUTS.store(hyprland_shortcuts_enabled(&saved), Ordering::Release);
             }
             STATE.load(Ordering::Acquire)
         }
@@ -970,6 +992,7 @@ pub(crate) fn apply(settings: &LabsSettings) {
     STATE.store(encode(settings), Ordering::Release);
     MICROPHONE_LINGER_SECONDS.store(linger_seconds(settings), Ordering::Release);
     PRINT_START.store(print_start_enabled(settings), Ordering::Release);
+    HYPRLAND_SHORTCUTS.store(hyprland_shortcuts_enabled(settings), Ordering::Release);
     // Labs › Pause from menu bar: turning it off resumes at once, without
     // waiting for the menu to refresh; the menu row hides itself there.
     crate::shortcut_pause::reconcile(pause_menu());

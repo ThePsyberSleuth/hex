@@ -8,6 +8,7 @@ pub(crate) mod context;
 pub(crate) mod dictation;
 pub(crate) mod gnome_shortcuts;
 pub(crate) mod gsettings;
+pub(crate) mod hyprland;
 pub(crate) mod icons;
 // Keep `linux_input::tests` in the test path for check-linux.yml's Xvfb filter.
 #[path = "linux/input.rs"]

@@ -208,6 +208,9 @@ impl Feature {
             Self::PrintStart => {
                 "Let hex dictation start --print hand the transcript to the command that started it, however the recording ends"
             }
+            Self::HyprlandShortcuts => {
+                "Bind Hex's shortcuts through Hyprland's config, so a key from Settings works without editing anything by hand"
+            }
         }
     }
 }

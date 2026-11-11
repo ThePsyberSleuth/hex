@@ -265,6 +265,9 @@ const PORTAL_WAIT: Duration = Duration::from_millis(50);
 const COMMAND_WAIT: Duration = Duration::from_millis(250);
 /// Binding through the portal can wait for the user to approve a dialog.
 const PORTAL_READY_TIMEOUT: Duration = Duration::from_secs(65);
+/// How often a Hyprland listener checks that Hex's binds are still there:
+/// `hyprctl reload` and config edits drop them without telling Hex.
+const HYPRLAND_RESYNC: Duration = Duration::from_secs(5);
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum HotkeyEvent {
@@ -579,7 +582,7 @@ fn project_grants(
 
 /// A shortcut a backend reports pressed or released.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum Shortcut {
+pub(crate) enum Shortcut {
     Dictation,
     PasteLast,
     TypedText,
@@ -591,7 +594,7 @@ enum Shortcut {
 }
 
 impl Shortcut {
-    const ALL: [Self; 7] = [
+    pub(crate) const ALL: [Self; 7] = [
         Self::Dictation,
         Self::PasteLast,
         Self::TypedText,
@@ -601,7 +604,7 @@ impl Shortcut {
         Self::SecondDictation,
     ];
 
-    fn index(self) -> usize {
+    pub(crate) fn index(self) -> usize {
         self as usize
     }
 
@@ -1366,6 +1369,20 @@ impl Backend {
             .store(portal.configurable(), Ordering::Release);
         self.status.configure.store(false, Ordering::Release);
         self.mark_ready(DesktopShortcuts::Portal(granted));
+        // Hyprland grants every shortcut without a key, so nothing answers
+        // until Hex binds the id itself; it takes the binds back out when the
+        // listener stops, leaving the keys as they were.
+        let mut hyprland = (crate::linux::hyprland::running() && crate::labs::hyprland_shortcuts())
+            .then(crate::linux::hyprland::Binds::default);
+        let sync_hyprland = |hyprland: &mut Option<crate::linux::hyprland::Binds>| {
+            if let Some(hyprland) = hyprland.as_mut() {
+                for note in hyprland.sync(&crate::linux::hyprland::wanted(&requested, &ids)) {
+                    tracing::warn!(note, "could not bind a Hex shortcut in Hyprland");
+                }
+            }
+        };
+        sync_hyprland(&mut hyprland);
+        let mut resync = Instant::now();
         let shortcut_for = |id: &str| {
             Shortcut::ALL.into_iter().find(|shortcut| {
                 ids[shortcut.index()].as_deref() == Some(id)
@@ -1399,12 +1416,20 @@ impl Backend {
                         with_modifiers = modifiers(&changed);
                         self.status
                             .set_shortcuts(DesktopShortcuts::Portal(project(&changed)));
+                        // Settings changed the shortcuts Hex asks for; the
+                        // portal session keeps the old ids until they are
+                        // bound again below.
+                        sync_hyprland(&mut hyprland);
+                        resync = Instant::now();
                         continue;
                     }
                     crate::linux::portal::Event::Closed => {
                         dispatcher.keys.released_all();
                         dispatcher.input(Input::Lost);
                         let _ = dispatcher.flush();
+                        if let Some(hyprland) = hyprland.as_mut() {
+                            hyprland.stop();
+                        }
                         return Err(eyre!("the desktop closed Hex's shortcuts portal session"));
                     }
                 };
@@ -1412,6 +1437,13 @@ impl Backend {
             }
             dispatcher.expire();
             dispatcher.commands();
+            // A `hyprctl reload` or a settings write drops the binds Hex made
+            // over IPC; nothing tells Hex when that happens, so it looks again
+            // and binds what is missing.
+            if resync.elapsed() >= HYPRLAND_RESYNC {
+                sync_hyprland(&mut hyprland);
+                resync = Instant::now();
+            }
             if self.status.configure.swap(false, Ordering::AcqRel)
                 && let Err(error) = portal.configure()
             {
@@ -1436,6 +1468,9 @@ impl Backend {
                 error = format!("{error:#}"),
                 "could not clear Hex's shortcuts from the desktop"
             );
+        }
+        if let Some(hyprland) = hyprland.as_mut() {
+            hyprland.stop();
         }
         Ok(())
     }

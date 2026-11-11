@@ -113,7 +113,8 @@ impl Feature {
             | Self::SectionKeyAlone
             | Self::ShareShortcut
             | Self::CapsLockDictation
-            | Self::PauseMenu => Group::Shortcuts,
+            | Self::PauseMenu
+            | Self::HyprlandShortcuts => Group::Shortcuts,
             Self::KeyboardModelSwitching
             | Self::AppModelSwitching
             | Self::UnloadIdle

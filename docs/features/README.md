@@ -1825,11 +1825,38 @@ Linux beta                               // not macOS feature parity
 │   │   │       // #575 fix checked by a unit test only, not on a GNOME session
 │   │   ├── Each row: "Your desktop granted <trigger>" (it may assign another);
 │   │   │   an empty trigger (KDE's for one it keeps unbound) counts as refused
-│   │   │   └── Hyprland (XDG_CURRENT_DESKTOP) -> its portal names no trigger, since
-│   │   │       its config binds them: muted "Your desktop assigns this key itself,
+│   │   │   └── Hyprland (XDG_CURRENT_DESKTOP) -> its portal names no trigger, so
+│   │   │       the row stays unconfirmed: muted "Your desktop assigns this key itself,
 │   │   │       so Hex can't confirm it", no refusal note, info log (#635)
 │   │   │       // check: a_missing_trigger_is_unconfirmed_where_the_desktop_assigns_keys
 │   │   │       // (the row's data only); not run on a Hyprland session
+│   │   │       └── Hex binds them itself (linux/hyprland.rs): `hyprctl eval` →
+│   │   │           `hl.bind(<key>, hl.dsp.global("anomaly.hex:<id>"), {description})`,
+│   │   │           the handle kept in the Lua global `_hex` for the session
+│   │   │           ├── Only while Labs › Hyprland shortcuts (`labs.hyprland_shortcuts`)
+│   │   │           │   is on, read where the portal listener starts; off by default
+│   │   │           ├── Before binding, `hyprctl -j binds` is read: a combination
+│   │   │           │   another binding holds is a conflict, left alone; Hex logs
+│   │   │           │   which bind took it and the row stays unconfirmed
+│   │   │           ├── A shortcut changed in Settings -> old handle `:remove()`d, new
+│   │   │           │   one bound; a shortcut turned off -> handle removed, its keys freed
+│   │   │           ├── `hyprctl reload` or a config edit drops IPC binds -> looked for
+│   │   │           │   again every 5 s and on ShortcutsChanged, and rebound
+│   │   │           ├── Listener stops / Enable off / portal session closed -> every
+│   │   │           │   handle removed; nothing is left bound and no config is written
+│   │   │           └── `hl.unbind` is combo-wide, so a bind Hex holds is removed
+│   │   │               through its handle rather than by combination. The one
+│   │   │               exception is a bind an earlier run of Hex left behind,
+│   │   │               whose handle died with that run: `hl.unbind(<combo>)` clears
+│   │   │               it before rebinding, and only after `hyprctl -j binds` shows
+│   │   │               nothing else on that combination (same mask, same key
+│   │   │               compared case-insensitively, empty submap). If something else
+│   │   │               is there, Hex leaves the key alone, says so, and the row
+│   │   │               stays unconfirmed (#1376)
+│   │   │               // check: hyprland.rs unit tests on plan()/combos, including
+│   │   │               // a_bind_spelled_in_another_case_still_blocks_the_clear and
+│   │   │               // a_restart_clears_the_old_combo_when_the_key_changed_meanwhile;
+│   │   │               // not run on a Hyprland session
 │   │   ├── Portal version 2 -> Desktop shortcuts > Open -> ConfigureShortcuts,
 │   │   │   the desktop's own dialog; ShortcutsChanged updates each row
 │   │   │   ├── The call fails (the frontend says version 2 but the desktop's backend,

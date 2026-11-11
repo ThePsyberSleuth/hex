@@ -653,6 +653,12 @@ pub(super) const KEYS: &[Key] = &[
          that command, never pasted or copied, however the recording ends (macOS)",
     ),
     key(
+        "labs.hyprland_shortcuts",
+        Kind::Bool,
+        "Labs: on Hyprland, Hex binds each shortcut from Settings through hyprctl where the \
+         combination is free, and takes the binds out when it stops (Linux)",
+    ),
+    key(
         "meetings.enabled",
         Kind::Bool,
         "Labs: Meetings (beta), call detection, recording, and transcripts",

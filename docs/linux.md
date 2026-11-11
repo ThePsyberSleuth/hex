@@ -480,10 +480,22 @@ dictation rules:
   Hex's entries from Settings › Keyboard › Global Shortcuts; Enable then asks
   you to approve them again. Hex also removes the duplicate list that versions
   before `anomaly.hex` left under the id `hex`.
-- **Hyprland** has the portal but takes every shortcut without a key, so
-  nothing happens until you bind one in your config, and the key Settings
-  records is not used. Hex can't tell whether your config binds it. Prefer
-  keys without modifiers, because Hyprland adds every modifier you still hold
+- **Hyprland** has the portal but takes every shortcut without a key: with
+  **Labs › Hyprland shortcuts** on, Hex binds them itself; off, nothing is
+  bound and the portal's keyless grants answer nothing. While Hex runs it
+  binds each shortcut in Settings (`anomaly.hex:dictation`,
+  `anomaly.hex:paste-last`, …) on the key Settings
+  records, through Hyprland's own configuration (`hyprctl eval`), and takes the
+  binds back out when it stops or you change a shortcut. All four shortcut
+  modes (Hold, Toggle, Double-tap, and Labs › Tap or hold) work, because the
+  binds are Hyprland's ordinary `global` binds, whose press and release reach
+  Hex. No config edit is needed once the switch is on, and Hex leaves every
+  other binding alone: if another bind already holds the key, Hex binds nothing
+  and logs which one took it, and Settings shows the shortcut unconfirmed. Bind
+  the key yourself in your config to choose which one wins, or record another
+  key in Settings. Hex looks again every few seconds, because `hyprctl reload`
+  and a config edit drop the binds Hex made. Prefer keys without modifiers,
+  because Hyprland adds every modifier you still hold
   to Hex's paste (see [Native Wayland Requirements](#native-wayland-requirements)).
   Avoid Alt in the bind too: Hyprland takes the key (Space) but lets Alt
   through to the focused window, so Electron apps with a hidden menu bar
@@ -497,7 +509,8 @@ dictation rules:
   `anomaly.hex:terminal-paste` (Labs › Terminal paste shortcut, while on).
   The names stay the
   same when you record another key in Settings (#1376), so a bind keeps
-  working; `hyprctl globalshortcuts` lists them while Hex runs. For example:
+  working; `hyprctl globalshortcuts` lists them while Hex runs. To bind one
+  yourself (for example to move it off a taken key), write:
 
 ```lua
 hl.bind("End", hl.dsp.global("anomaly.hex:dictation"))
@@ -511,7 +524,9 @@ hl.bind("F10", hl.dsp.global("anomaly.hex:paste-last"))
   bind was written, so switch them to the bare names before you record
   another key. Binds to `hex:dictation` or `hex:paste-last` (names from
   before Hex's app id was `anomaly.hex`) do nothing now, so replace them. Remove any `cancel-dictation`
-  bind: Hex no longer has it. Hyprland 0.56's Lua binds send no release when the modifier comes
+  bind: Hex no longer has it. Without the Lua configuration (a Hyprland older
+  than 0.57) Hex can't bind anything, so bind the names above yourself.
+  Hyprland 0.56's Lua binds send no release when the modifier comes
   up before the key (Alt before Z); 0.57 fixes this. On 0.56, Toggle is
   unaffected: the next press still finishes. In Hold, recording continues
   until the next press and release, so lift the key first or use Toggle.
